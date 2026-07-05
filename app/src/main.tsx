@@ -10,10 +10,13 @@ function App() {
     try {
       // @ts-ignore
       const wasm = await import('../wasm/realz_core')
+      // wasm-pack --target web requires calling init() before using exports
+      await wasm.default()
       const color = wasm.render_square()
       setSquareColor(color)
       setStatus('')
-    } catch {
+    } catch (e) {
+      console.error('wasm load failed', e)
       setStatus('wasm not loaded')
     }
   }
