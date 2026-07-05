@@ -2,10 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f0f0f" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0b0f" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <title>Realz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body, #root { height: 100%; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        color: #f4f4f6;
+        background:
+          radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
+          radial-gradient(900px 500px at 85% 110%, rgba(236, 72, 153, 0.10), transparent 55%),
+          #0b0b0f;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

@@ -1,21 +1,34 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
+function Logo() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <circle cx="24" cy="32" r="15" stroke="url(#g)" strokeWidth="2.5" opacity="0.95" />
+      <circle cx="40" cy="32" r="15" stroke="url(#g)" strokeWidth="2.5" opacity="0.95" />
+      <defs>
+        <linearGradient id="g" x1="9" y1="17" x2="55" y2="47" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#818cf8" />
+          <stop offset="1" stopColor="#ec4899" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
 function App() {
-  const [squareColor, setSquareColor] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('')
 
-  async function handleConnect() {
-    setStatus('loading…')
+  async function handleEnter() {
+    setStatus('entering…')
     try {
       // wasm lives in public/wasm/ — served as-is by Vite, not bundled
       const wasmUrl = `${import.meta.env.BASE_URL}wasm/realz_core.js`
       // @ts-ignore
       const wasm = await import(/* @vite-ignore */ wasmUrl)
       await wasm.default(`${import.meta.env.BASE_URL}wasm/realz_core_bg.wasm`)
-      const color = wasm.render_square()
-      setSquareColor(color)
-      setStatus('')
+      wasm.render_square()
+      setStatus('ready')
     } catch (e) {
       console.error('wasm load failed', e)
       setStatus('wasm not loaded')
@@ -23,20 +36,87 @@ function App() {
   }
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem', color: '#fff', background: '#0f0f0f', minHeight: '100vh' }}>
-      <h1>Realz</h1>
-      <p>P2P social network — coming soon</p>
-      <button
-        onClick={handleConnect}
-        style={{ padding: '0.5rem 1.5rem', fontSize: '1rem', cursor: 'pointer', borderRadius: 6, border: 'none', background: '#6366f1', color: '#fff' }}
+    <main
+      style={{
+        minHeight: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: 'clamp(1.5rem, 5vw, 4rem)',
+        gap: 'clamp(1.5rem, 4vh, 2.5rem)',
+      }}
+    >
+      <Logo />
+
+      <h1
+        style={{
+          fontFamily: "'Fraunces', Georgia, serif",
+          fontWeight: 400,
+          fontSize: 'clamp(2.75rem, 12vw, 5rem)',
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+          background: 'linear-gradient(135deg, #f4f4f6 0%, #c7c9f2 100%)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+        }}
       >
-        Connect
+        Realz
+      </h1>
+
+      <p
+        style={{
+          fontFamily: "'Fraunces', Georgia, serif",
+          fontStyle: 'italic',
+          fontWeight: 300,
+          fontSize: 'clamp(1.15rem, 4.5vw, 1.6rem)',
+          lineHeight: 1.5,
+          color: 'rgba(244, 244, 246, 0.82)',
+          maxWidth: '22ch',
+        }}
+      >
+        A private space
+        <br />
+        to pass trust
+        <br />
+        between people.
+      </p>
+
+      <button
+        onClick={handleEnter}
+        style={{
+          marginTop: '0.5rem',
+          padding: '0.85rem 2.75rem',
+          fontFamily: "'Inter', sans-serif",
+          fontSize: '1rem',
+          fontWeight: 500,
+          letterSpacing: '0.02em',
+          cursor: 'pointer',
+          borderRadius: 999,
+          border: '1px solid rgba(255, 255, 255, 0.16)',
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          color: '#fff',
+          boxShadow: '0 8px 30px rgba(99, 102, 241, 0.35)',
+          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)'
+          e.currentTarget.style.boxShadow = '0 12px 38px rgba(99, 102, 241, 0.45)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.boxShadow = '0 8px 30px rgba(99, 102, 241, 0.35)'
+        }}
+      >
+        Enter
       </button>
-      {status && <p style={{ opacity: 0.5, fontSize: '0.8rem', marginTop: '0.5rem' }}>{status}</p>}
-      {squareColor && (
-        <div style={{ marginTop: '1.5rem', width: 80, height: 80, background: squareColor, borderRadius: 4 }} />
+
+      {status && status !== 'ready' && (
+        <p style={{ fontSize: '0.8rem', color: 'rgba(244, 244, 246, 0.4)' }}>{status}</p>
       )}
-    </div>
+    </main>
   )
 }
 
