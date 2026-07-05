@@ -1,25 +1,37 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
 function App() {
-  const [coreVersion, setCoreVersion] = useState<string>('')
+  const [squareColor, setSquareColor] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>('')
 
-  useEffect(() => {
-    // ponytail: wasm built separately; ignore until wasm artifact exists
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    import('../wasm/realz_core').then((m) => {
-      setCoreVersion(m.version())
-    }).catch(() => {
-      setCoreVersion('wasm not loaded')
-    })
-  }, [])
+  async function handleConnect() {
+    setStatus('loading…')
+    try {
+      // @ts-ignore
+      const wasm = await import('../wasm/realz_core')
+      const color = wasm.render_square()
+      setSquareColor(color)
+      setStatus('')
+    } catch {
+      setStatus('wasm not loaded')
+    }
+  }
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: '2rem', color: '#fff', background: '#0f0f0f', minHeight: '100vh' }}>
       <h1>Realz</h1>
       <p>P2P social network — coming soon</p>
-      {coreVersion && <p style={{ opacity: 0.5, fontSize: '0.8rem' }}>core v{coreVersion}</p>}
+      <button
+        onClick={handleConnect}
+        style={{ padding: '0.5rem 1.5rem', fontSize: '1rem', cursor: 'pointer', borderRadius: 6, border: 'none', background: '#6366f1', color: '#fff' }}
+      >
+        Connect
+      </button>
+      {status && <p style={{ opacity: 0.5, fontSize: '0.8rem', marginTop: '0.5rem' }}>{status}</p>}
+      {squareColor && (
+        <div style={{ marginTop: '1.5rem', width: 80, height: 80, background: squareColor, borderRadius: 4 }} />
+      )}
     </div>
   )
 }
