@@ -1,5 +1,10 @@
-import { StrictMode, useState } from 'react'
+import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 function Logo() {
   return (
@@ -16,7 +21,15 @@ function Logo() {
   )
 }
 
-function StartScreen({ onEnter, status }: { onEnter: () => void; status: string }) {
+function StartScreen({
+  onEnter,
+  status,
+  onInstall,
+}: {
+  onEnter: () => void
+  status: string
+  onInstall: (() => void) | null
+}) {
   return (
     <main
       style={{
@@ -69,6 +82,22 @@ function StartScreen({ onEnter, status }: { onEnter: () => void; status: string 
       <button onClick={onEnter} style={buttonStyle}>
         Enter
       </button>
+
+      {onInstall && (
+        <button
+          onClick={onInstall}
+          style={{
+            ...buttonStyle,
+            padding: '0.65rem 2rem',
+            fontSize: '0.9rem',
+            background: 'transparent',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            boxShadow: 'none',
+          }}
+        >
+          Install app
+        </button>
+      )}
 
       {status && status !== 'ready' && (
         <p style={{ fontSize: '0.8rem', color: 'rgba(244, 244, 246, 0.4)' }}>{status}</p>
@@ -123,6 +152,28 @@ const buttonStyle: React.CSSProperties = {
 function App() {
   const [bg, setBg] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('')
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+
+  useEffect(() => {
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault() // stash it so we can trigger the prompt from our own button
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+    }
+    const onInstalled = () => setInstallPrompt(null)
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  async function handleInstall() {
+    if (!installPrompt) return
+    await installPrompt.prompt()
+    await installPrompt.userChoice
+    setInstallPrompt(null) // prompt can only be used once
+  }
 
   async function handleEnter() {
     setStatus('entering…')
@@ -142,7 +193,13 @@ function App() {
   }
 
   if (bg) return <WasmApp bg={bg} onExit={() => setBg(null)} />
-  return <StartScreen onEnter={handleEnter} status={status} />
+  return (
+    <StartScreen
+      onEnter={handleEnter}
+      status={status}
+      onInstall={installPrompt ? handleInstall : null}
+    />
+  )
 }
 
 createRoot(document.getElementById('root')!).render(
