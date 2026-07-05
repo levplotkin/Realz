@@ -16,25 +16,7 @@ function Logo() {
   )
 }
 
-function App() {
-  const [status, setStatus] = useState<string>('')
-
-  async function handleEnter() {
-    setStatus('entering…')
-    try {
-      // wasm lives in public/wasm/ — served as-is by Vite, not bundled
-      const wasmUrl = `${import.meta.env.BASE_URL}wasm/realz_core.js`
-      // @ts-ignore
-      const wasm = await import(/* @vite-ignore */ wasmUrl)
-      await wasm.default(`${import.meta.env.BASE_URL}wasm/realz_core_bg.wasm`)
-      wasm.render_square()
-      setStatus('ready')
-    } catch (e) {
-      console.error('wasm load failed', e)
-      setStatus('wasm not loaded')
-    }
-  }
-
+function StartScreen({ onEnter, status }: { onEnter: () => void; status: string }) {
   return (
     <main
       style={{
@@ -84,32 +66,7 @@ function App() {
         between people.
       </p>
 
-      <button
-        onClick={handleEnter}
-        style={{
-          marginTop: '0.5rem',
-          padding: '0.85rem 2.75rem',
-          fontFamily: "'Inter', sans-serif",
-          fontSize: '1rem',
-          fontWeight: 500,
-          letterSpacing: '0.02em',
-          cursor: 'pointer',
-          borderRadius: 999,
-          border: '1px solid rgba(255, 255, 255, 0.16)',
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-          color: '#fff',
-          boxShadow: '0 8px 30px rgba(99, 102, 241, 0.35)',
-          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)'
-          e.currentTarget.style.boxShadow = '0 12px 38px rgba(99, 102, 241, 0.45)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.boxShadow = '0 8px 30px rgba(99, 102, 241, 0.35)'
-        }}
-      >
+      <button onClick={onEnter} style={buttonStyle}>
         Enter
       </button>
 
@@ -118,6 +75,74 @@ function App() {
       )}
     </main>
   )
+}
+
+function WasmApp({ bg, onExit }: { bg: string; onExit: () => void }) {
+  return (
+    <main
+      style={{
+        minHeight: '100%',
+        background: bg,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 'clamp(1.5rem, 5vw, 4rem)',
+        gap: 'clamp(1.5rem, 4vh, 2.5rem)',
+      }}
+    >
+      <button
+        onClick={onExit}
+        style={{
+          ...buttonStyle,
+          background: 'rgba(0, 0, 0, 0.35)',
+          border: '1px solid rgba(255, 255, 255, 0.5)',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
+        }}
+      >
+        Exit
+      </button>
+    </main>
+  )
+}
+
+const buttonStyle: React.CSSProperties = {
+  padding: '0.85rem 2.75rem',
+  fontFamily: "'Inter', sans-serif",
+  fontSize: '1rem',
+  fontWeight: 500,
+  letterSpacing: '0.02em',
+  cursor: 'pointer',
+  borderRadius: 999,
+  border: '1px solid rgba(255, 255, 255, 0.16)',
+  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+  color: '#fff',
+  boxShadow: '0 8px 30px rgba(99, 102, 241, 0.35)',
+}
+
+function App() {
+  const [bg, setBg] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>('')
+
+  async function handleEnter() {
+    setStatus('entering…')
+    try {
+      // wasm lives in public/wasm/ — served as-is by Vite, not bundled
+      const wasmUrl = `${import.meta.env.BASE_URL}wasm/realz_core.js`
+      // @ts-ignore
+      const wasm = await import(/* @vite-ignore */ wasmUrl)
+      await wasm.default(`${import.meta.env.BASE_URL}wasm/realz_core_bg.wasm`)
+      // background color comes from the wasm module
+      setBg(wasm.render_square())
+      setStatus('ready')
+    } catch (e) {
+      console.error('wasm load failed', e)
+      setStatus('wasm not loaded')
+    }
+  }
+
+  if (bg) return <WasmApp bg={bg} onExit={() => setBg(null)} />
+  return <StartScreen onEnter={handleEnter} status={status} />
 }
 
 createRoot(document.getElementById('root')!).render(
