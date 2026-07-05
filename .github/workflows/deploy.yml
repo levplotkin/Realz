@@ -29,7 +29,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM
-        run: wasm-pack build core --target web --out-dir ../app/wasm
+        run: wasm-pack build core --target web --out-dir ../app/public/wasm
 
       - name: Setup Node
         uses: actions/setup-node@v4

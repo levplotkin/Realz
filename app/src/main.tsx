@@ -8,10 +8,11 @@ function App() {
   async function handleConnect() {
     setStatus('loading…')
     try {
+      // wasm lives in public/wasm/ — served as-is by Vite, not bundled
+      const wasmUrl = `${import.meta.env.BASE_URL}wasm/realz_core.js`
       // @ts-ignore
-      const wasm = await import('../wasm/realz_core')
-      // wasm-pack --target web requires calling init() before using exports
-      await wasm.default()
+      const wasm = await import(/* @vite-ignore */ wasmUrl)
+      await wasm.default(`${import.meta.env.BASE_URL}wasm/realz_core_bg.wasm`)
       const color = wasm.render_square()
       setSquareColor(color)
       setStatus('')
