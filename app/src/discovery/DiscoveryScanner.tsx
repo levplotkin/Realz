@@ -35,6 +35,7 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
   const [peers, setPeers] = useState<Map<string, DiscoveredPeer>>(new Map())
   const [btError, setBtError] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [btScanning, setBtScanning] = useState(false)
   const unsubRef = useRef<(() => void) | null>(null)
   const settings = loadDiscoverySettings()
 
@@ -78,11 +79,17 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
 
   async function handleBluetoothScan() {
     setBtError('')
+    setBtScanning(true)
     try {
       const peer = await scanOnce()
       addPeer(peer.didId, peer.didUrl, peer.name || peer.didId.slice(0, 10), 'bluetooth')
     } catch (e: any) {
-      setBtError(e.message ?? String(e))
+      if ((e as any)?.name !== 'NotFoundError') {
+        // NotFoundError = user cancelled the picker — not an error worth showing
+        setBtError(e.message ?? String(e))
+      }
+    } finally {
+      setBtScanning(false)
     }
   }
 
@@ -117,8 +124,12 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
 
         {settings.bluetooth && (
           <div style={{ marginTop: '1rem' }}>
-            <button style={styles.ghost} onClick={handleBluetoothScan}>
-              Scan Bluetooth
+            <button
+              style={{ ...styles.ghost, opacity: btScanning ? 0.5 : 1 }}
+              onClick={handleBluetoothScan}
+              disabled={btScanning}
+            >
+              {btScanning ? 'Connecting…' : 'Scan Bluetooth'}
             </button>
             {btError && <p style={styles.errText}>{btError}</p>}
           </div>
