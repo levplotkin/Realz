@@ -5,6 +5,9 @@ function App() {
   const [coreVersion, setCoreVersion] = useState<string>('')
 
   useEffect(() => {
+    // ponytail: wasm built separately; ignore until wasm artifact exists
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     import('../wasm/realz_core').then((m) => {
       setCoreVersion(m.version())
     }).catch(() => {
