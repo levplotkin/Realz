@@ -12,7 +12,11 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "realz-core": ["./src/wasm-stub.d.ts"]
+    }
   },
   "include": ["src"]
 }
