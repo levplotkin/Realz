@@ -2,6 +2,8 @@
 
 P2P social network with trust networks and distributed identity.
 
+**Live**: https://levplotkin.github.io/Realz/
+
 **Stack**: Rust (WASM core) + React + Vite PWA + Gun.js
 
 ## Architecture
