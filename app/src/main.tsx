@@ -1,7 +1,11 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import Onboarding from './Onboarding'
 import { loadIdentity, type Identity } from './identity'
+import DiscoverySettingsScreen from './discovery/DiscoverySettings'
+import DiscoveryScanner, { type DiscoveredPeer } from './discovery/DiscoveryScanner'
+import { publishGeo, unpublishGeo } from './discovery/geo'
+import { loadDiscoverySettings } from './discovery/settings'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -10,10 +14,20 @@ interface BeforeInstallPromptEvent extends Event {
 
 type Wasm = typeof import('realz-core')
 
+interface GunNode {
+  get(path: string): GunNode
+  put(data: object): void
+  map(): GunNode
+  on(cb: (data: unknown, key: string) => void): void
+  off(): void
+}
+
 type Phase =
   | { type: 'loading' }
   | { type: 'onboarding'; wasm: Wasm }
   | { type: 'home'; wasm: Wasm; identity: Identity }
+  | { type: 'discovery-settings'; wasm: Wasm; identity: Identity }
+  | { type: 'discovery-scan'; wasm: Wasm; identity: Identity }
   | { type: 'error'; message: string }
 
 function Logo() {
@@ -70,73 +84,75 @@ function LoadingScreen({ message }: { message: string }) {
   )
 }
 
-function HomeScreen({ identity, onSignOut }: { identity: Identity; onSignOut: () => void }) {
-  const profile = JSON.parse(identity.didJson).profile as {
-    name: string
-    bio: string
-    avatarUrl: string
-  }
+function HomeScreen({
+  identity,
+  onDiscoverySettings,
+  onDiscoveryScan,
+  onSignOut,
+}: {
+  identity: Identity
+  onDiscoverySettings: () => void
+  onDiscoveryScan: () => void
+  onSignOut: () => void
+}) {
+  const profile = JSON.parse(identity.didJson).profile as { name: string; bio: string }
+  const settings = loadDiscoverySettings()
+  const activeChannels = [
+    settings.internet && 'internet',
+    settings.location && 'location',
+    settings.wifi && 'Wi-Fi',
+    settings.bluetooth && 'BT',
+  ].filter(Boolean).join(' · ')
+
   return (
     <main style={{ ...pageCenter, alignItems: 'flex-start', padding: 'clamp(1.5rem, 5vw, 4rem)' }}>
       <div style={{ width: '100%', maxWidth: '28rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <Logo />
+
         <div>
-          <h2
-            style={{
-              fontFamily: "'Fraunces', Georgia, serif",
-              fontWeight: 400,
-              fontSize: 'clamp(1.8rem, 6vw, 2.4rem)',
-              color: '#f4f4f6',
-              margin: '0 0 0.25rem',
-            }}
-          >
+          <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 400, fontSize: 'clamp(1.8rem, 6vw, 2.4rem)', color: '#f4f4f6', margin: '0 0 0.25rem' }}>
             {profile.name}
           </h2>
-          {profile.bio && (
-            <p style={{ color: 'rgba(244,244,246,0.6)', fontSize: '0.95rem', margin: 0 }}>
-              {profile.bio}
-            </p>
-          )}
+          {profile.bio && <p style={{ color: 'rgba(244,244,246,0.6)', fontSize: '0.95rem', margin: 0 }}>{profile.bio}</p>}
         </div>
-        <div
-          style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '0.75rem',
-            padding: '0.85rem 1rem',
-          }}
-        >
-          <p style={{ color: 'rgba(244,244,246,0.4)', fontSize: '0.72rem', margin: '0 0 0.3rem', fontFamily: 'monospace' }}>
-            DID
-          </p>
-          <p
-            style={{
-              color: 'rgba(244,244,246,0.7)',
-              fontSize: '0.72rem',
-              fontFamily: 'monospace',
-              wordBreak: 'break-all',
-              margin: 0,
-            }}
+
+        {/* Discovery buttons */}
+        <div style={{ display: 'flex', gap: '0.65rem' }}>
+          <button style={{ ...primaryBtn, flex: 1, padding: '0.75rem 1rem' }} onClick={onDiscoveryScan}>
+            Find people
+          </button>
+          <button
+            style={{ ...ghostBtn, padding: '0.75rem 1.25rem', position: 'relative' }}
+            onClick={onDiscoverySettings}
+            title="Discovery settings"
           >
+            ⚙ Visibility
+            {activeChannels && (
+              <span style={{ position: 'absolute', top: 4, right: 6, fontSize: '0.6rem', color: '#4ade80' }}>●</span>
+            )}
+          </button>
+        </div>
+
+        {activeChannels && (
+          <p style={{ color: 'rgba(244,244,246,0.35)', fontSize: '0.78rem', margin: 0 }}>
+            Visible via: {activeChannels}
+          </p>
+        )}
+
+        <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.85rem 1rem' }}>
+          <p style={{ color: 'rgba(244,244,246,0.4)', fontSize: '0.72rem', margin: '0 0 0.3rem', fontFamily: 'monospace' }}>DID</p>
+          <p style={{ color: 'rgba(244,244,246,0.7)', fontSize: '0.72rem', fontFamily: 'monospace', wordBreak: 'break-all', margin: 0 }}>
             {identity.didId}
           </p>
         </div>
+
         {identity.didUrl && (
           <p style={{ color: 'rgba(244,244,246,0.4)', fontSize: '0.8rem', margin: 0 }}>
-            Hosted at{' '}
-            <a
-              href={identity.didUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: '#818cf8' }}
-            >
-              {identity.didUrl}
-            </a>
+            Hosted at <a href={identity.didUrl} target="_blank" rel="noreferrer" style={{ color: '#818cf8' }}>{identity.didUrl}</a>
           </p>
         )}
-        <button onClick={onSignOut} style={ghostBtn}>
-          Sign out
-        </button>
+
+        <button onClick={onSignOut} style={ghostBtn}>Sign out</button>
       </div>
     </main>
   )
@@ -146,6 +162,7 @@ function App() {
   const [phase, setPhase] = useState<Phase>({ type: 'loading' })
   const [started, setStarted] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const gunRef = useRef<GunNode | null>(null)
 
   useEffect(() => {
     const onBeforeInstall = (e: Event) => {
@@ -161,6 +178,17 @@ function App() {
     }
   }, [])
 
+  function initGun() {
+    if (gunRef.current) return
+    try {
+      // Gun attaches itself to window.Gun when bundled as UMD
+      const Gun = (window as any).Gun
+      if (Gun) gunRef.current = Gun({ peers: ['https://gun-manhattan.herokuapp.com/gun'] }) as GunNode
+    } catch {
+      // Gun unavailable — discovery still works via QR/invite link
+    }
+  }
+
   async function handleEnter() {
     setStarted(true)
     setPhase({ type: 'loading' })
@@ -171,8 +199,15 @@ function App() {
       await (wasmModule as any).default(`${import.meta.env.BASE_URL}wasm/realz_core_bg.wasm`)
       const wasm = wasmModule as Wasm
 
+      initGun()
+
       const identity = await loadIdentity()
       if (identity) {
+        // Resume any active geo publishing
+        const settings = loadDiscoverySettings()
+        if (settings.location && settings.locationLat !== undefined && gunRef.current) {
+          publishGeo(gunRef.current, wasm, identity, settings.locationLat, settings.locationLng!)
+        }
         setPhase({ type: 'home', wasm, identity })
       } else {
         setPhase({ type: 'onboarding', wasm })
@@ -194,10 +229,19 @@ function App() {
   }
 
   async function handleSignOut() {
+    // Remove geo record before signing out
+    if (phase.type === 'home' && gunRef.current) {
+      unpublishGeo(gunRef.current, phase.identity.didId)
+    }
     const { clearIdentity } = await import('./identity')
     await clearIdentity()
     setStarted(false)
     setPhase({ type: 'loading' })
+  }
+
+  function handlePeerConnect(peer: DiscoveredPeer) {
+    // ponytail: stub — will become the trust-edge creation flow
+    alert(`Connect with ${peer.name} (${peer.didId.slice(0, 16)}…)\nDID URL: ${peer.didUrl}`)
   }
 
   if (!started) {
@@ -209,13 +253,8 @@ function App() {
     )
   }
 
-  if (phase.type === 'loading') {
-    return <LoadingScreen message="loading…" />
-  }
-
-  if (phase.type === 'error') {
-    return <LoadingScreen message={phase.message} />
-  }
+  if (phase.type === 'loading') return <LoadingScreen message="loading…" />
+  if (phase.type === 'error') return <LoadingScreen message={phase.message} />
 
   if (phase.type === 'onboarding') {
     return (
@@ -226,9 +265,31 @@ function App() {
     )
   }
 
+  if (phase.type === 'discovery-settings') {
+    return (
+      <DiscoverySettingsScreen
+        identity={phase.identity}
+        onClose={() => setPhase({ type: 'home', wasm: phase.wasm, identity: phase.identity })}
+      />
+    )
+  }
+
+  if (phase.type === 'discovery-scan') {
+    return (
+      <DiscoveryScanner
+        gun={gunRef.current!}
+        identity={phase.identity}
+        onConnect={handlePeerConnect}
+        onClose={() => setPhase({ type: 'home', wasm: phase.wasm, identity: phase.identity })}
+      />
+    )
+  }
+
   return (
     <HomeScreen
       identity={phase.identity}
+      onDiscoverySettings={() => setPhase({ type: 'discovery-settings', wasm: phase.wasm, identity: phase.identity })}
+      onDiscoveryScan={() => setPhase({ type: 'discovery-scan', wasm: phase.wasm, identity: phase.identity })}
       onSignOut={handleSignOut}
     />
   )
