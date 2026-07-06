@@ -277,7 +277,7 @@ function App() {
   if (phase.type === 'discovery-scan') {
     return (
       <DiscoveryScanner
-        gun={gunRef.current!}
+        gun={gunRef.current}
         identity={phase.identity}
         onConnect={handlePeerConnect}
         onClose={() => setPhase({ type: 'home', wasm: phase.wasm, identity: phase.identity })}

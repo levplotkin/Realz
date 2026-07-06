@@ -24,7 +24,7 @@ export interface DiscoveredPeer {
 }
 
 interface Props {
-  gun: GunNode
+  gun: GunNode | null
   identity: Identity
   onConnect: (peer: DiscoveredPeer) => void
   onClose: () => void
@@ -44,7 +44,7 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
 
   // Geo subscription
   useEffect(() => {
-    if (!settings.location || settings.locationLat === undefined) return
+    if (!gun || !settings.location || settings.locationLat === undefined) return
     setScanning(true)
     const unsub = subscribeNearby(gun, settings.locationLat, settings.locationLng!, 5, (r: GeoRecord) => {
       if (r.didId === identity.didId) return  // skip self
@@ -56,7 +56,7 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
 
   // Wi-Fi subscription — same Gun.js path but filtered to LAN peers
   useEffect(() => {
-    if (!settings.wifi) return
+    if (!gun || !settings.wifi) return
     setScanning(true)
     const node = gun.get('realz/discovery/wifi').map()
     node.on((data: unknown) => {
@@ -70,7 +70,7 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
   // Web Bluetooth can't advertise from a browser, so we simulate proximity via a shared
   // relay bucket. Peers present in the same 30-second window appear as discovered.
   useEffect(() => {
-    if (!settings.bluetooth) return
+    if (!gun || !settings.bluetooth) return
     const profile = JSON.parse(identity.didJson).profile as { name: string }
     const bucket = Math.floor(Date.now() / 30_000)
     // Publish self into current and next bucket so overlap across bucket boundaries works
