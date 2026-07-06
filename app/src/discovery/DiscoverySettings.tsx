@@ -84,6 +84,7 @@ export default function DiscoverySettingsScreen({ identity, onClose }: Props) {
             label="Show my DID URL as public address"
             value={settings.internet}
             onChange={v => update({ internet: v })}
+            disabled
           />
           {settings.internet && (
             <p style={styles.hint}>
@@ -98,6 +99,7 @@ export default function DiscoverySettingsScreen({ identity, onClose }: Props) {
             label="Publish my location"
             value={settings.location}
             onChange={handleLocationToggle}
+            disabled
           />
           {settings.location && settings.locationLat !== undefined && (
             <p style={styles.hint}>
@@ -118,6 +120,7 @@ export default function DiscoverySettingsScreen({ identity, onClose }: Props) {
             label="Visible on local network"
             value={settings.wifi}
             onChange={v => update({ wifi: v })}
+            disabled
           />
           {settings.wifi && (
             <p style={styles.hint}>Other Realz users on the same Wi-Fi can find you.</p>
@@ -163,12 +166,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ label, value, onChange, disabled }: { label: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: '1rem' }}>
+    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: disabled ? 'not-allowed' : 'pointer', gap: '1rem', opacity: disabled ? 0.4 : 1 }}>
       <span style={{ fontSize: '0.95rem', color: 'rgba(244,244,246,0.85)' }}>{label}</span>
       <div
-        onClick={() => onChange(!value)}
+        onClick={() => !disabled && onChange(!value)}
         style={{
           width: 44,
           height: 24,

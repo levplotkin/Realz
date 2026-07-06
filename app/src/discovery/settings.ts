@@ -14,7 +14,7 @@ const DEFAULTS: DiscoverySettings = {
   internet: false,
   location: false,
   wifi: false,
-  bluetooth: false,
+  bluetooth: true,
 }
 
 export function loadDiscoverySettings(): DiscoverySettings {
