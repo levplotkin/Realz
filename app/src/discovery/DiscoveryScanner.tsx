@@ -5,8 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Identity } from '../identity'
 import { loadDiscoverySettings } from './settings'
 import { subscribeNearby, type GeoRecord } from './geo'
-import { scanOnce } from './bluetooth'
-import { parseInviteFromHash, type InvitePayload } from './qr'
+import { parseInviteFromHash } from './qr'
 
 interface GunNode {
   get(path: string): GunNode
@@ -33,9 +32,7 @@ interface Props {
 
 export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: Props) {
   const [peers, setPeers] = useState<Map<string, DiscoveredPeer>>(new Map())
-  const [btError, setBtError] = useState('')
   const [scanning, setScanning] = useState(false)
-  const [btScanning, setBtScanning] = useState(false)
   const unsubRef = useRef<(() => void) | null>(null)
   const settings = loadDiscoverySettings()
 
@@ -69,28 +66,36 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
     return () => { node.off(); setScanning(false) }
   }, [])
 
+  // Bluetooth — publish self to a time-bucketed Gun.js relay path and subscribe to it.
+  // Web Bluetooth can't advertise from a browser, so we simulate proximity via a shared
+  // relay bucket. Peers present in the same 30-second window appear as discovered.
+  useEffect(() => {
+    if (!settings.bluetooth) return
+    const profile = JSON.parse(identity.didJson).profile as { name: string }
+    const bucket = Math.floor(Date.now() / 30_000)
+    // Publish self into current and next bucket so overlap across bucket boundaries works
+    for (const b of [bucket, bucket + 1]) {
+      gun.get(`realz/discovery/bt/${b}`).get(identity.didId).put({
+        didId: identity.didId,
+        didUrl: identity.didUrl,
+        name: profile.name,
+      })
+    }
+    setScanning(true)
+    const node = gun.get(`realz/discovery/bt/${bucket}`).map()
+    node.on((data: unknown) => {
+      if (!isWifiRecord(data) || data.didId === identity.didId) return
+      addPeer(data.didId, data.didUrl, data.name, 'bluetooth')
+    })
+    return () => { node.off(); setScanning(false) }
+  }, [])
+
   function addPeer(didId: string, didUrl: string, name: string, channel: DiscoveredPeer['channel'], distanceKm?: number) {
     setPeers(prev => {
       const next = new Map(prev)
       next.set(didId, { didId, didUrl, name, channel, distanceKm })
       return next
     })
-  }
-
-  async function handleBluetoothScan() {
-    setBtError('')
-    setBtScanning(true)
-    try {
-      const peer = await scanOnce()
-      addPeer(peer.didId, peer.didUrl, peer.name || peer.didId.slice(0, 10), 'bluetooth')
-    } catch (e: any) {
-      if ((e as any)?.name !== 'NotFoundError') {
-        // NotFoundError = user cancelled the picker — not an error worth showing
-        setBtError(e.message ?? String(e))
-      }
-    } finally {
-      setBtScanning(false)
-    }
   }
 
   const list = [...peers.values()].filter(p => p.didId !== identity.didId)
@@ -122,18 +127,6 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
           </div>
         ))}
 
-        {settings.bluetooth && (
-          <div style={{ marginTop: '1rem' }}>
-            <button
-              style={{ ...styles.ghost, opacity: btScanning ? 0.5 : 1 }}
-              onClick={handleBluetoothScan}
-              disabled={btScanning}
-            >
-              {btScanning ? 'Connecting…' : 'Scan Bluetooth'}
-            </button>
-            {btError && <p style={styles.errText}>{btError}</p>}
-          </div>
-        )}
       </div>
     </main>
   )
