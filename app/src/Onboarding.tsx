@@ -3,6 +3,7 @@ import {
   createIdentity,
   importIdentityFromUrl,
   saveIdentity,
+  setDidUrl,
   type Identity,
 } from './identity'
 
@@ -11,6 +12,7 @@ type Wasm = typeof import('realz-core')
 type Step =
   | { type: 'choose' }
   | { type: 'create-profile' }
+  | { type: 'create-publish'; didJson: string; pendingIdentity: Identity }
   | { type: 'import-url' }
   | { type: 'importing'; url: string }
   | { type: 'error'; message: string; back: Step }
@@ -25,18 +27,34 @@ export default function Onboarding({ wasm, onComplete }: Props) {
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
   const [importUrl, setImportUrl] = useState('')
+  const [didUrl, setDidUrlState] = useState('')
+  const [copied, setCopied] = useState(false)
 
   async function handleCreate() {
     if (!name.trim()) return
     const deviceId = `device-${Date.now()}`
-    const { identity } = await createIdentity(
+    const { identity, didJson } = await createIdentity(
       wasm,
       deviceId,
       { name: name.trim(), bio: bio.trim(), avatarUrl: '' },
       new Date().toISOString(),
     )
     await saveIdentity(identity)
-    onComplete(identity)
+    setStep({ type: 'create-publish', didJson, pendingIdentity: identity })
+  }
+
+  async function handlePublishDone() {
+    const url = didUrl.trim()
+    if (!url) return
+    await setDidUrl(url)
+    const identity = await import('./identity').then(m => m.loadIdentity())
+    if (identity) onComplete(identity)
+  }
+
+  async function copyDidJson(json: string) {
+    await navigator.clipboard.writeText(json)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   async function handleImport() {
@@ -112,6 +130,42 @@ export default function Onboarding({ wasm, onComplete }: Props) {
                 Generate keys
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {step.type === 'create-publish' && (
+        <div style={styles.card}>
+          <h2 style={styles.heading}>Host your identity</h2>
+          <p style={styles.sub}>
+            Paste this JSON anywhere publicly reachable — a GitHub Gist, your own server, IPFS — then enter
+            the URL below.
+          </p>
+          <textarea
+            style={styles.textarea}
+            readOnly
+            value={step.didJson}
+            rows={8}
+          />
+          <button style={{ ...styles.ghost, marginBottom: '1rem' }} onClick={() => copyDidJson(step.didJson)}>
+            {copied ? 'Copied!' : 'Copy JSON'}
+          </button>
+          <label style={styles.label}>
+            URL where you hosted it
+            <input
+              style={styles.input}
+              value={didUrl}
+              onChange={e => setDidUrlState(e.target.value)}
+              placeholder="https://gist.githubusercontent.com/…/did.json"
+            />
+          </label>
+          <div style={styles.row}>
+            <button style={styles.ghost} onClick={() => onComplete(step.pendingIdentity)}>
+              Skip
+            </button>
+            <button style={styles.primary} onClick={handlePublishDone} disabled={!didUrl.trim()}>
+              Done
+            </button>
           </div>
         </div>
       )}
@@ -216,6 +270,18 @@ const styles = {
     color: '#f4f4f6',
     fontSize: '1rem',
     outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box' as const,
+  },
+  textarea: {
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.14)',
+    borderRadius: '0.5rem',
+    padding: '0.65rem 0.9rem',
+    color: 'rgba(244,244,246,0.7)',
+    fontSize: '0.72rem',
+    fontFamily: 'monospace',
+    resize: 'vertical' as const,
     width: '100%',
     boxSizing: 'border-box' as const,
   },
