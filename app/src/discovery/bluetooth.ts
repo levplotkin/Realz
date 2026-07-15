@@ -32,6 +32,24 @@ export function isBluetoothSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator
 }
 
+export interface PickedBluetoothDevice {
+  id: string
+  name: string
+}
+
+/**
+ * Open the browser's native Bluetooth chooser showing ALL nearby devices and
+ * return the one the user taps. The browser renders the device list itself —
+ * Web Bluetooth cannot enumerate devices into our own UI, so this is one pick
+ * per call. These are physical BT devices (headphones, laptops…), not Realz peers.
+ * Throws if the user cancels or Bluetooth is unsupported.
+ */
+export async function pickBluetoothDevice(): Promise<PickedBluetoothDevice> {
+  if (!isBluetoothSupported()) throw new Error('Web Bluetooth not supported in this browser')
+  const device = await (navigator as any).bluetooth.requestDevice({ acceptAllDevices: true })
+  return { id: device.id, name: device.name ?? 'Unknown device' }
+}
+
 /**
  * Request BLE scan filtered to Realz service UUID.
  * Returns one discovered peer (browser shows a picker — user selects one device).

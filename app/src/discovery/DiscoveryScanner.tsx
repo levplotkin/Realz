@@ -6,6 +6,7 @@ import type { Identity } from '../identity'
 import { loadDiscoverySettings } from './settings'
 import { subscribeNearby, type GeoRecord } from './geo'
 import { parseInviteFromHash } from './qr'
+import { isBluetoothSupported, pickBluetoothDevice, type PickedBluetoothDevice } from './bluetooth'
 
 interface GunNode {
   get(path: string): GunNode
@@ -39,9 +40,23 @@ interface Props {
 export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: Props) {
   const [peers, setPeers] = useState<Map<string, DiscoveredPeer>>(new Map())
   const [scanning, setScanning] = useState(false)
+  const [btDevices, setBtDevices] = useState<Map<string, PickedBluetoothDevice>>(new Map())
+  const [btError, setBtError] = useState('')
   const unsubRef = useRef<(() => void) | null>(null)
   const lastSeenRef = useRef<Map<string, number>>(new Map())
   const settings = loadDiscoverySettings()
+
+  async function handleBluetoothScan() {
+    setBtError('')
+    try {
+      const device = await pickBluetoothDevice()
+      setBtDevices(prev => new Map(prev).set(device.id, device))
+    } catch (e) {
+      // User cancelling the chooser rejects the promise — not an error worth showing.
+      const msg = String(e)
+      if (!/cancel/i.test(msg)) setBtError(msg)
+    }
+  }
 
   // Parse invite from URL hash on mount
   useEffect(() => {
@@ -179,6 +194,30 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
           </div>
         ))}
 
+        {/* Native Bluetooth device chooser. These are physical BT devices, not
+            Realz users — the browser can only reveal them one at a time via its
+            own picker. Shown as a separate section from the Realz peer list. */}
+        {isBluetoothSupported() && (
+          <div style={styles.btSection}>
+            <div style={styles.btHeader}>
+              <span style={styles.btTitle}>Bluetooth devices</span>
+              <button style={styles.btScanBtn} onClick={handleBluetoothScan}>Scan</button>
+            </div>
+            {[...btDevices.values()].map(d => (
+              <div key={d.id} style={styles.peerRow}>
+                <div style={styles.avatar}>🔵</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={styles.peerName}>{d.name}</p>
+                  <p style={styles.peerMeta}>
+                    <span style={{ fontSize: '0.8rem', color: 'rgba(244,244,246,0.5)' }}>Bluetooth device</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+            {btError && <p style={styles.errText}>{btError}</p>}
+          </div>
+        )}
+
       </div>
     </main>
   )
@@ -313,5 +352,35 @@ const styles = {
     color: '#f87171',
     fontSize: '0.82rem',
     margin: '0.5rem 0 0',
+  } as React.CSSProperties,
+  btSection: {
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    paddingTop: '1rem',
+    marginTop: '0.5rem',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.75rem',
+  },
+  btHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  } as React.CSSProperties,
+  btTitle: {
+    fontSize: '0.78rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.08em',
+    color: 'rgba(244,244,246,0.4)',
+  },
+  btScanBtn: {
+    padding: '0.4rem 1rem',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: '0.85rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    borderRadius: 999,
+    border: '1px solid rgba(255,255,255,0.25)',
+    background: 'transparent',
+    color: 'rgba(244,244,246,0.8)',
   } as React.CSSProperties,
 }
