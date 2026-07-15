@@ -30,7 +30,7 @@ export default function Onboarding({ wasm, onComplete }: Props) {
   const [didUrl, setDidUrlState] = useState('')
   const [copied, setCopied] = useState(false)
 
-  async function handleCreate() {
+  async function handleCreate(host: boolean) {
     if (!name.trim()) return
     const deviceId = `device-${Date.now()}`
     const { identity, didJson } = await createIdentity(
@@ -40,7 +40,11 @@ export default function Onboarding({ wasm, onComplete }: Props) {
       new Date().toISOString(),
     )
     await saveIdentity(identity)
-    setStep({ type: 'create-publish', didJson, pendingIdentity: identity })
+    if (host) {
+      setStep({ type: 'create-publish', didJson, pendingIdentity: identity })
+    } else {
+      onComplete(identity)
+    }
   }
 
   async function handlePublishDone() {
@@ -126,8 +130,11 @@ export default function Onboarding({ wasm, onComplete }: Props) {
               <button style={styles.ghost} onClick={() => setStep({ type: 'choose' })}>
                 Back
               </button>
-              <button style={styles.primary} onClick={handleCreate} disabled={!name.trim()}>
-                Generate keys
+              <button style={styles.primary} onClick={() => handleCreate(false)} disabled={!name.trim()}>
+                Keep locally
+              </button>
+              <button style={styles.primary} onClick={() => handleCreate(true)} disabled={!name.trim()}>
+                Host at URL
               </button>
             </div>
           </div>
@@ -159,14 +166,9 @@ export default function Onboarding({ wasm, onComplete }: Props) {
               placeholder="https://gist.githubusercontent.com/…/did.json"
             />
           </label>
-          <div style={styles.row}>
-            <button style={styles.ghost} onClick={() => onComplete(step.pendingIdentity)}>
-              Skip
-            </button>
-            <button style={styles.primary} onClick={handlePublishDone} disabled={!didUrl.trim()}>
-              Done
-            </button>
-          </div>
+          <button style={styles.primary} onClick={handlePublishDone} disabled={!didUrl.trim()}>
+            Done
+          </button>
         </div>
       )}
 
