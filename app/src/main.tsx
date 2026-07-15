@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import Gun from 'gun'
 import Onboarding from './Onboarding'
 import { loadIdentity, type Identity } from './identity'
 import DiscoverySettingsScreen from './discovery/DiscoverySettings'
@@ -180,13 +181,7 @@ function App() {
 
   function initGun() {
     if (gunRef.current) return
-    try {
-      // Gun attaches itself to window.Gun when bundled as UMD
-      const Gun = (window as any).Gun
-      if (Gun) gunRef.current = Gun({ peers: ['https://gun-manhattan.herokuapp.com/gun'] }) as GunNode
-    } catch {
-      // Gun unavailable — discovery still works via QR/invite link
-    }
+    gunRef.current = Gun({ peers: ['https://gun-manhattan.herokuapp.com/gun'] }) as unknown as GunNode
   }
 
   async function handleEnter() {
