@@ -23,6 +23,12 @@ export interface DiscoveredPeer {
   distanceKm?: number
 }
 
+// A peer is "present" only if we've seen a fresh record within this window.
+// Live devices republish every 10s (see below), so a signed-out / closed peer
+// ages out within FRESH_MS. This is what stops stale cached records — including
+// your own past identities — from lingering in the list.
+const FRESH_MS = 35_000
+
 interface Props {
   gun: GunNode | null
   identity: Identity
@@ -34,6 +40,7 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
   const [peers, setPeers] = useState<Map<string, DiscoveredPeer>>(new Map())
   const [scanning, setScanning] = useState(false)
   const unsubRef = useRef<(() => void) | null>(null)
+  const lastSeenRef = useRef<Map<string, number>>(new Map())
   const settings = loadDiscoverySettings()
 
   // Parse invite from URL hash on mount
@@ -77,14 +84,16 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
   useEffect(() => {
     if (!gun || !settings.bluetooth) return
     const profile = JSON.parse(identity.didJson).profile as { name: string }
-    const record = { didId: identity.didId, didUrl: identity.didUrl, name: profile.name }
     setScanning(true)
 
     const subscribed = new Map<number, GunNode>()
 
     function tick() {
-      const bucket = Math.floor(Date.now() / 30_000)
+      const now = Date.now()
+      const bucket = Math.floor(now / 30_000)
       // Publish into current + next bucket so we stay visible across the boundary.
+      // ts lets subscribers distinguish a live peer from a stale cached record.
+      const record = { didId: identity.didId, didUrl: identity.didUrl, name: profile.name, ts: now }
       for (const b of [bucket, bucket + 1]) {
         gun!.get(`realz/discovery/bt/${b}`).get(identity.didId).put(record)
       }
@@ -93,11 +102,14 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
         if (subscribed.has(b)) continue
         const node = gun!.get(`realz/discovery/bt/${b}`).map()
         node.on((data: unknown) => {
-          if (!isWifiRecord(data) || data.didId === identity.didId) return
+          if (!isBtRecord(data) || data.didId === identity.didId) return
+          if (Date.now() - data.ts > FRESH_MS) return  // ignore stale/cached records
           addPeer(data.didId, data.didUrl, data.name, 'bluetooth')
         })
         subscribed.set(b, node)
       }
+      // Drop peers we haven't heard from within the freshness window.
+      pruneStale()
     }
 
     tick()
@@ -110,10 +122,31 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
   }, [])
 
   function addPeer(didId: string, didUrl: string, name: string, channel: DiscoveredPeer['channel'], distanceKm?: number) {
+    lastSeenRef.current.set(didId, Date.now())
     setPeers(prev => {
       const next = new Map(prev)
       next.set(didId, { didId, didUrl, name, channel, distanceKm })
       return next
+    })
+  }
+
+  // Remove relay-discovered peers we haven't heard from within FRESH_MS.
+  // Invite peers are added once from a URL and have no heartbeat, so they're kept.
+  function pruneStale() {
+    const now = Date.now()
+    setPeers(prev => {
+      let changed = false
+      const next = new Map(prev)
+      for (const [didId, peer] of prev) {
+        if (peer.channel === 'invite') continue
+        const seen = lastSeenRef.current.get(didId) ?? 0
+        if (now - seen > FRESH_MS) {
+          next.delete(didId)
+          lastSeenRef.current.delete(didId)
+          changed = true
+        }
+      }
+      return changed ? next : prev
     })
   }
 
@@ -165,6 +198,10 @@ function isWifiRecord(v: unknown): v is { didId: string; didUrl: string; name: s
   return typeof v === 'object' && v !== null &&
     typeof (v as any).didId === 'string' &&
     typeof (v as any).didUrl === 'string'
+}
+
+function isBtRecord(v: unknown): v is { didId: string; didUrl: string; name: string; ts: number } {
+  return isWifiRecord(v) && typeof (v as any).ts === 'number'
 }
 
 const styles = {
