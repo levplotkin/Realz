@@ -68,26 +68,45 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
 
   // Bluetooth — publish self to a time-bucketed Gun.js relay path and subscribe to it.
   // Web Bluetooth can't advertise from a browser, so we simulate proximity via a shared
-  // relay bucket. Peers present in the same 30-second window appear as discovered.
+  // relay bucket. Peers present in the same ~30-second window appear as discovered.
+  //
+  // Both devices must publish AND subscribe to the SAME bucket to see each other. Since
+  // they open the scanner at different times, we (a) re-publish on an interval so our
+  // record is always in the *current* bucket, and (b) subscribe to both the current and
+  // previous bucket so two devices in adjacent windows still overlap.
   useEffect(() => {
     if (!gun || !settings.bluetooth) return
     const profile = JSON.parse(identity.didJson).profile as { name: string }
-    const bucket = Math.floor(Date.now() / 30_000)
-    // Publish self into current and next bucket so overlap across bucket boundaries works
-    for (const b of [bucket, bucket + 1]) {
-      gun.get(`realz/discovery/bt/${b}`).get(identity.didId).put({
-        didId: identity.didId,
-        didUrl: identity.didUrl,
-        name: profile.name,
-      })
-    }
+    const record = { didId: identity.didId, didUrl: identity.didUrl, name: profile.name }
     setScanning(true)
-    const node = gun.get(`realz/discovery/bt/${bucket}`).map()
-    node.on((data: unknown) => {
-      if (!isWifiRecord(data) || data.didId === identity.didId) return
-      addPeer(data.didId, data.didUrl, data.name, 'bluetooth')
-    })
-    return () => { node.off(); setScanning(false) }
+
+    const subscribed = new Map<number, GunNode>()
+
+    function tick() {
+      const bucket = Math.floor(Date.now() / 30_000)
+      // Publish into current + next bucket so we stay visible across the boundary.
+      for (const b of [bucket, bucket + 1]) {
+        gun!.get(`realz/discovery/bt/${b}`).get(identity.didId).put(record)
+      }
+      // Subscribe to current + previous so a peer that opened one window earlier is seen.
+      for (const b of [bucket - 1, bucket]) {
+        if (subscribed.has(b)) continue
+        const node = gun!.get(`realz/discovery/bt/${b}`).map()
+        node.on((data: unknown) => {
+          if (!isWifiRecord(data) || data.didId === identity.didId) return
+          addPeer(data.didId, data.didUrl, data.name, 'bluetooth')
+        })
+        subscribed.set(b, node)
+      }
+    }
+
+    tick()
+    const timer = setInterval(tick, 10_000)
+    return () => {
+      clearInterval(timer)
+      for (const node of subscribed.values()) node.off()
+      setScanning(false)
+    }
   }, [])
 
   function addPeer(didId: string, didUrl: string, name: string, channel: DiscoveredPeer['channel'], distanceKm?: number) {
