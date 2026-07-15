@@ -50,6 +50,35 @@ export async function pickBluetoothDevice(): Promise<PickedBluetoothDevice> {
   return { id: device.id, name: device.name ?? 'Unknown device' }
 }
 
+/** True if the experimental live-scan API is present (Chrome flag required). */
+export function isLiveScanSupported(): boolean {
+  return isBluetoothSupported() && 'requestLEScan' in ((navigator as any).bluetooth ?? {})
+}
+
+/**
+ * Live BLE scan — streams advertising devices into `onDevice` as they are seen,
+ * populating an in-page list (no native picker modal). Requires the experimental
+ * Web Bluetooth Scanning API: Chrome with
+ * chrome://flags/#enable-experimental-web-platform-features enabled (and, on
+ * Android, location permission). Returns a stop() function.
+ * Throws if the API is unavailable or the user denies the scan prompt.
+ */
+export async function liveScanBluetooth(
+  onDevice: (d: PickedBluetoothDevice) => void,
+): Promise<() => void> {
+  if (!isLiveScanSupported()) throw new Error('Live Bluetooth scan not available in this browser')
+  const bt = (navigator as any).bluetooth
+  const scan = await bt.requestLEScan({ acceptAllAdvertisements: true })
+  const handler = (e: any) => {
+    onDevice({ id: e.device.id, name: e.device.name ?? e.name ?? 'Unknown device' })
+  }
+  bt.addEventListener('advertisementreceived', handler)
+  return () => {
+    bt.removeEventListener('advertisementreceived', handler)
+    try { scan.stop() } catch { /* already stopped */ }
+  }
+}
+
 /**
  * Request BLE scan filtered to Realz service UUID.
  * Returns one discovered peer (browser shows a picker — user selects one device).

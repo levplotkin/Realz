@@ -6,7 +6,13 @@ import type { Identity } from '../identity'
 import { loadDiscoverySettings } from './settings'
 import { subscribeNearby, type GeoRecord } from './geo'
 import { parseInviteFromHash } from './qr'
-import { isBluetoothSupported, pickBluetoothDevice, type PickedBluetoothDevice } from './bluetooth'
+import {
+  isBluetoothSupported,
+  isLiveScanSupported,
+  liveScanBluetooth,
+  pickBluetoothDevice,
+  type PickedBluetoothDevice,
+} from './bluetooth'
 
 interface GunNode {
   get(path: string): GunNode
@@ -42,21 +48,48 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
   const [scanning, setScanning] = useState(false)
   const [btDevices, setBtDevices] = useState<Map<string, PickedBluetoothDevice>>(new Map())
   const [btError, setBtError] = useState('')
+  const [btScanning, setBtScanning] = useState(false)
+  const btStopRef = useRef<(() => void) | null>(null)
   const unsubRef = useRef<(() => void) | null>(null)
   const lastSeenRef = useRef<Map<string, number>>(new Map())
   const settings = loadDiscoverySettings()
 
+  function addBtDevice(device: PickedBluetoothDevice) {
+    setBtDevices(prev => new Map(prev).set(device.id, device))
+  }
+
+  // Prefer the live-scan API (results stream into the page). If it isn't available
+  // (no Chrome experimental flag), fall back to the native one-at-a-time picker.
   async function handleBluetoothScan() {
     setBtError('')
+    if (isLiveScanSupported()) {
+      if (btScanning) return
+      try {
+        setBtScanning(true)
+        btStopRef.current = await liveScanBluetooth(addBtDevice)
+      } catch (e) {
+        setBtScanning(false)
+        setBtError(String(e))
+      }
+      return
+    }
+    // Fallback: native picker modal — browser limitation, results can't stream in-page.
     try {
-      const device = await pickBluetoothDevice()
-      setBtDevices(prev => new Map(prev).set(device.id, device))
+      addBtDevice(await pickBluetoothDevice())
     } catch (e) {
-      // User cancelling the chooser rejects the promise — not an error worth showing.
       const msg = String(e)
       if (!/cancel/i.test(msg)) setBtError(msg)
     }
   }
+
+  function stopBluetoothScan() {
+    btStopRef.current?.()
+    btStopRef.current = null
+    setBtScanning(false)
+  }
+
+  // Stop any live scan when leaving the screen.
+  useEffect(() => () => btStopRef.current?.(), [])
 
   // Parse invite from URL hash on mount
   useEffect(() => {
@@ -200,8 +233,15 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
         {isBluetoothSupported() && (
           <div style={styles.btSection}>
             <div style={styles.btHeader}>
-              <span style={styles.btTitle}>Bluetooth devices</span>
-              <button style={styles.btScanBtn} onClick={handleBluetoothScan}>Scan</button>
+              <span style={styles.btTitle}>
+                Bluetooth devices
+                {btScanning && <span style={{ ...styles.dot, marginLeft: 8 }} title="scanning" />}
+              </span>
+              {btScanning ? (
+                <button style={styles.btScanBtn} onClick={stopBluetoothScan}>Stop</button>
+              ) : (
+                <button style={styles.btScanBtn} onClick={handleBluetoothScan}>Scan</button>
+              )}
             </div>
             {[...btDevices.values()].map(d => (
               <div key={d.id} style={styles.peerRow}>
@@ -214,6 +254,13 @@ export default function DiscoveryScanner({ gun, identity, onConnect, onClose }: 
                 </div>
               </div>
             ))}
+            {!isLiveScanSupported() && (
+              <p style={styles.hint}>
+                Live in-page scanning needs Chrome with
+                chrome://flags/#enable-experimental-web-platform-features enabled.
+                Otherwise devices are picked one at a time from the browser dialog.
+              </p>
+            )}
             {btError && <p style={styles.errText}>{btError}</p>}
           </div>
         )}
@@ -382,5 +429,12 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.25)',
     background: 'transparent',
     color: 'rgba(244,244,246,0.8)',
+  } as React.CSSProperties,
+  hint: {
+    color: 'rgba(244,244,246,0.4)',
+    fontSize: '0.78rem',
+    lineHeight: 1.45,
+    margin: 0,
+    wordBreak: 'break-word' as const,
   } as React.CSSProperties,
 }
