@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   createIdentity,
   importIdentityFromUrl,
+  loadIdentity,
   saveIdentity,
   setDidUrl,
   type Identity,
@@ -19,16 +20,22 @@ type Step =
 
 interface Props {
   wasm: Wasm
+  onBack: () => void
   onComplete: (identity: Identity) => void
 }
 
-export default function Onboarding({ wasm, onComplete }: Props) {
+export default function Onboarding({ wasm, onBack, onComplete }: Props) {
   const [step, setStep] = useState<Step>({ type: 'choose' })
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
   const [importUrl, setImportUrl] = useState('')
   const [didUrl, setDidUrlState] = useState('')
   const [copied, setCopied] = useState(false)
+  const [savedIdentity, setSavedIdentity] = useState<Identity | null>(null)
+
+  useEffect(() => {
+    loadIdentity().then(id => setSavedIdentity(id ?? null))
+  }, [])
 
   async function handleCreate(host: boolean) {
     if (!name.trim()) return
@@ -90,6 +97,7 @@ export default function Onboarding({ wasm, onComplete }: Props) {
     <main style={styles.page}>
       {step.type === 'choose' && (
         <div style={styles.card}>
+          <button onClick={onBack} style={styles.backBtn}>← Back</button>
           <h2 style={styles.heading}>Your identity</h2>
           <p style={styles.sub}>A cryptographic key, hosted wherever you like.</p>
           <div style={styles.stack}>
@@ -143,6 +151,7 @@ export default function Onboarding({ wasm, onComplete }: Props) {
 
       {step.type === 'create-publish' && (
         <div style={styles.card}>
+          <button onClick={() => onComplete(step.pendingIdentity)} style={styles.backBtn}>← Back</button>
           <h2 style={styles.heading}>Host your identity</h2>
           <p style={styles.sub}>
             Paste this JSON anywhere publicly reachable — a GitHub Gist, your own server, IPFS — then enter
@@ -174,10 +183,20 @@ export default function Onboarding({ wasm, onComplete }: Props) {
 
       {step.type === 'import-url' && (
         <div style={styles.card}>
+          <button onClick={() => setStep({ type: 'choose' })} style={styles.backBtn}>← Back</button>
           <h2 style={styles.heading}>Enter your DID URL</h2>
           <p style={styles.sub}>The URL where your signed identity document is hosted.</p>
+          {savedIdentity && (
+            <div style={styles.savedBox}>
+              <p style={styles.savedLabel}>Saved on this device</p>
+              <p style={styles.savedName}>{JSON.parse(savedIdentity.didJson).profile?.name ?? savedIdentity.didId.slice(0, 20) + '…'}</p>
+              <button style={styles.primary} onClick={() => onComplete(savedIdentity)}>
+                Use this identity
+              </button>
+            </div>
+          )}
           <label style={styles.label}>
-            DID document URL
+            Or load from URL
             <input
               style={styles.input}
               value={importUrl}
@@ -186,14 +205,9 @@ export default function Onboarding({ wasm, onComplete }: Props) {
               autoFocus
             />
           </label>
-          <div style={styles.row}>
-            <button style={styles.ghost} onClick={() => setStep({ type: 'choose' })}>
-              Back
-            </button>
-            <button style={styles.primary} onClick={handleImport} disabled={!importUrl.trim()}>
-              Load
-            </button>
-          </div>
+          <button style={styles.primary} onClick={handleImport} disabled={!importUrl.trim()}>
+            Load
+          </button>
         </div>
       )}
 
@@ -299,6 +313,37 @@ const styles = {
     color: '#fff',
     boxShadow: '0 8px 30px rgba(99,102,241,0.35)',
   } as React.CSSProperties,
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(244,244,246,0.5)',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    padding: 0,
+    alignSelf: 'flex-start',
+  } as React.CSSProperties,
+  savedBox: {
+    background: 'rgba(99,102,241,0.1)',
+    border: '1px solid rgba(99,102,241,0.3)',
+    borderRadius: '0.75rem',
+    padding: '1rem',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.5rem',
+  },
+  savedLabel: {
+    fontSize: '0.75rem',
+    color: 'rgba(244,244,246,0.45)',
+    margin: 0,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+  },
+  savedName: {
+    fontSize: '1rem',
+    color: '#f4f4f6',
+    fontWeight: 500,
+    margin: 0,
+  },
   ghost: {
     padding: '0.85rem 2rem',
     fontFamily: "'Inter', sans-serif",

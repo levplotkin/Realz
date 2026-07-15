@@ -255,6 +255,7 @@ function App() {
     return (
       <Onboarding
         wasm={phase.wasm}
+        onBack={() => setStarted(false)}
         onComplete={(identity) => handleIdentityReady(identity, phase.wasm)}
       />
     )
