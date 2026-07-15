@@ -57,3 +57,5 @@ Gun.js connects to a public relay (`gun-manhattan.herokuapp.com`) as the bootstr
 ## Notes
 
 The original Bluetooth implementation used Web Bluetooth GATT: it opened a device picker filtered to `REALZ_SERVICE_UUID`. This was replaced in July 2025 because Web Bluetooth cannot advertise — the picker never found any devices and hung indefinitely. The Gun.js relay approach was chosen as the pragmatic replacement.
+
+**Relay update (2026-07)**: The bootstrap peer was originally `gun-manhattan.herokuapp.com`. Heroku shut down its free tier in November 2022, so that URL now returns "No such app" and all relay-based discovery silently failed. The bootstrap peer was switched to `relay.peer.ooo` (a live public Gun relay). The self-hosted-relay recommendation for production still stands.

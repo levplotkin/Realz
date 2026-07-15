@@ -146,4 +146,4 @@ The concurrency group is `pages` with `cancel-in-progress: false` — Pages depl
 - Bluetooth proximity is simulated via Gun.js relay — it is not actual BLE proximity.
 - Location and Wi-Fi discovery channels are implemented but disabled in the UI pending further testing.
 - Imported identities are read-only — no device delegation flow yet.
-- Gun.js relay peer (`gun-manhattan.herokuapp.com`) is a public relay; a self-hosted relay should be used for production.
+- Gun.js relay peer (`relay.peer.ooo`) is a public relay; a self-hosted relay should be used for production.

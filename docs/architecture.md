@@ -5,7 +5,7 @@
 Realz is a client-only application. There is no application server. All state lives on the user's device. The only network dependencies are:
 
 - A **public URL** where the user hosts their DID document (GitHub Gist, etc.)
-- The **Gun.js relay** (`gun-manhattan.herokuapp.com`) for peer discovery
+- The **Gun.js relay** (`relay.peer.ooo`) for peer discovery
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -26,8 +26,8 @@ Realz is a client-only application. There is no application server. All state li
                │                                    │
     ┌──────────▼──────────┐          ┌──────────────▼──────┐
     │  Gun.js relay        │          │  User-hosted URL     │
-    │  gun-manhattan.      │          │  (Gist / IPFS /      │
-    │  herokuapp.com       │          │   own server)        │
+    │  relay.peer.ooo      │          │  (Gist / IPFS /      │
+    │                      │          │   own server)        │
     │                      │          │                      │
     │  Bluetooth bucket    │          │  DID document JSON   │
     │  Geo mesh            │          │  (public, verified   │

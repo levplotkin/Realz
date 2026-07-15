@@ -47,7 +47,7 @@ Geo records are signed with the publisher's device key (in `geo.ts`), but `Disco
 Discovering a peer does not establish a trust relationship. The "Connect" button in the discovery screen shows an `alert()` stub. Trust-edge signing (device key signs `trust:<target_did>:<timestamp>`) is not implemented.
 
 ### Gun relay is a public community node
-`gun-manhattan.herokuapp.com` is a public, community-run relay with no SLA. If it goes offline, all discovery channels except QR invite links stop working.
+`relay.peer.ooo` is a public, community-run relay with no SLA. If it goes offline, all discovery channels except QR invite links stop working. (The original `gun-manhattan.herokuapp.com` relay was decommissioned when Heroku's free tier shut down in Nov 2022.)
 
 ---
 
@@ -73,12 +73,12 @@ Invite URLs encode the DID ID, DID URL, and display name in the URL hash. These 
 ## Infrastructure
 
 ### Single public relay dependency
-All non-QR discovery depends on `gun-manhattan.herokuapp.com`. This is a centralized point of failure for a decentralized system. A self-hosted relay is the intended production path but is not yet in place.
+All non-QR discovery depends on `relay.peer.ooo`. This is a centralized point of failure for a decentralized system. A self-hosted relay is the intended production path but is not yet in place.
 
 ### GitHub Pages limitations
 - No server-side logic — deep-link URLs return 404 on hard refresh (mitigated by in-memory routing).
 - 1 GB repository size limit; WASM binary and JS bundle must stay well under 100 MB per file.
-- If the `gun-manhattan` relay is unavailable, discovery degrades to QR-only.
+- If the `relay.peer.ooo` relay is unavailable, discovery degrades to QR-only.
 
 ### WASM must be pre-built
 The `app/public/wasm/` directory must contain a current `wasm-pack` build before `npm run dev` or `npm run build` will work. New contributors must run `wasm-pack build core --target web --out-dir ../app/public/wasm` first. The WASM output is not committed to the repo.

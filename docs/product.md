@@ -67,7 +67,7 @@ Find people near you without a central directory:
 - **Profile update flow** — edit name/bio in the app and re-host the updated DID document.
 - **End-to-end encrypted messaging** — ephemeral or persistent; routed through Gun.js or direct WebRTC.
 - **Revocation** — mark a DID or device key as compromised.
-- **Self-hosted relay** — replace the public `gun-manhattan` relay with a Realz-operated relay.
+- **Self-hosted relay** — replace the public `relay.peer.ooo` relay with a Realz-operated relay.
 
 ---
 

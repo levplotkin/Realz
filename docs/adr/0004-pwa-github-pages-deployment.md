@@ -41,5 +41,5 @@ Deploy as a **Vite PWA** to **GitHub Pages** using **GitHub Actions**.
 - GitHub Pages is not designed for apps with client-side routing — any deep-link URL that is not the root will return a 404 on hard refresh. Mitigated by the single-page architecture (all routing is in-memory state, not URL paths).
 - The WASM binary is served as a static file from `public/wasm/`; it must be built before `vite build` runs. The CI workflow handles this, but local dev requires running `wasm-pack build` first.
 - GitHub Pages enforces a 1 GB repository size limit and a 100 MB file size limit — the WASM binary and JS bundle must stay well under these.
-- GitHub Pages has no server-side logic; the Gun.js relay (`gun-manhattan.herokuapp.com`) is needed for any real-time discovery. If that relay is unavailable, discovery is limited to QR/invite links.
+- GitHub Pages has no server-side logic; the Gun.js relay (`relay.peer.ooo`) is needed for any real-time discovery. If that relay is unavailable, discovery is limited to QR/invite links.
 - The `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` env var is set in the deploy job to suppress Node 20 deprecation warnings from the Pages action. This should be removed once `actions/deploy-pages` ships a Node 24-native release.

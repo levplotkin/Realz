@@ -181,7 +181,9 @@ function App() {
 
   function initGun() {
     if (gunRef.current) return
-    gunRef.current = Gun({ peers: ['https://gun-manhattan.herokuapp.com/gun'] }) as unknown as GunNode
+    // gun-manhattan.herokuapp.com is dead (Heroku free tier shut down Nov 2022).
+    // relay.peer.ooo is a live public relay. Self-host for production (see ADR-0003).
+    gunRef.current = Gun({ peers: ['https://relay.peer.ooo/gun'] }) as unknown as GunNode
   }
 
   async function handleEnter() {
